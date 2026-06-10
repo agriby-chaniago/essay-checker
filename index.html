@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NLP Essay Checker — IndoBERT + Cosine Similarity</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Literata:ital,wght@0,400;0,600;1,400&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f3ee;
+  --surface: #ffffff;
+  --surface2: #f0ede6;
+  --border: #ddd8ce;
+  --border2: #c8c2b4;
+  --text: #1a1814;
+  --text2: #5a554a;
+  --text3: #8c8478;
+  --accent: #2d5a3d;
+  --accent-bg: #e8f0eb;
+  --warn: #7a4a10;
+  --warn-bg: #fdf0df;
+  --danger: #7a1010;
+  --danger-bg: #fdf0f0;
+  --blue: #0f3d7a;
+  --blue-bg: #eaf0fb;
+  --mono: 'IBM Plex Mono', monospace;
+  --serif: 'Literata', Georgia, serif;
+  --sans: 'Plus Jakarta Sans', sans-serif;
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+/* ── LAYOUT ── */
+.page-wrap { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem 4rem; }
+
+/* ── HEADER ── */
+.site-header {
+  border-bottom: 1px solid var(--border);
+  padding: 1.25rem 0;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-icon {
+  width: 36px; height: 36px;
+  background: var(--accent);
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 17px;
+}
+.logo-text { font-family: var(--serif); font-size: 18px; font-weight: 600; }
+.logo-sub  { font-size: 11px; color: var(--text3); letter-spacing: .04em; text-transform: uppercase; }
+.header-badge {
+  font-size: 11px;
+  font-family: var(--mono);
+  background: var(--accent-bg);
+  color: var(--accent);
+  padding: 4px 10px;
+  border-radius: 100px;
+  border: 1px solid #b8d4c0;
+}
+
+/* ── SECTION TITLE ── */
+.section-label {
+  font-size: 11px;
+  font-family: var(--mono);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: .6rem;
+  display: flex; align-items: center; gap: 6px;
+}
+.step-num {
+  width: 20px; height: 20px;
+  background: var(--text);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+
+/* ── CARDS ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1rem;
+}
+.card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: .75rem;
+  border-bottom: 1px solid var(--border);
+}
+.card-title { font-size: 14px; font-weight: 600; }
+
+/* ── GRID ── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: .75rem; }
+
+/* ── FORM ELEMENTS ── */
+textarea, input[type=text], input[type=number], select {
+  width: 100%;
+  font-family: var(--sans);
+  font-size: 13px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  color: var(--text);
+  transition: border .15s, background .15s;
+}
+textarea:focus, input[type=text]:focus, input[type=number]:focus, select:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: #fff;
+}
+textarea { resize: vertical; min-height: 130px; line-height: 1.65; }
+
+label.field-label {
+  display: block;
+  font-size: 12px; font-weight: 500;
+  color: var(--text2);
+  margin-bottom: 5px;
+}
+
+/* ── UPLOAD ZONE ── */
+.upload-zone {
+  border: 1.5px dashed var(--border2);
+  border-radius: var(--radius-sm);
+  padding: 1.25rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all .15s;
+  background: var(--surface2);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; min-height: 90px;
+}
+.upload-zone:hover { border-color: var(--accent); background: var(--accent-bg); }
+.upload-zone.has-file { border-color: var(--accent); background: var(--accent-bg); }
+.upload-icon { font-size: 24px; color: var(--text3); }
+.upload-zone p { font-size: 13px; color: var(--text2); }
+.upload-zone small { font-size: 11px; color: var(--text3); }
+.upload-fname { font-size: 12px; font-family: var(--mono); color: var(--accent); font-weight: 500; }
+input[type=file] { display: none; }
+
+/* ── KUNCI ROWS ── */
+.kunci-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.kunci-row input { flex: 1; }
+.btn-remove {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0 10px;
+  cursor: pointer;
+  color: var(--text3);
+  font-size: 15px;
+  transition: all .12s;
+}
+.btn-remove:hover { border-color: var(--danger); color: var(--danger); background: var(--danger-bg); }
+.add-poin-btn {
+  background: none; border: none;
+  font-size: 12px; color: var(--accent);
+  cursor: pointer; display: flex; align-items: center; gap: 4px;
+  padding: 2px 0;
+}
+.add-poin-btn:hover { opacity: .7; }
+
+/* ── SLIDER ── */
+.slider-wrap { display: flex; align-items: center; gap: 10px; }
+.slider-wrap input[type=range] { flex: 1; accent-color: var(--accent); }
+.slider-val {
+  font-family: var(--mono);
+  font-size: 13px; font-weight: 500;
+  min-width: 38px;
+  text-align: right;
+}
+
+/* ── BUTTONS ── */
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 11px 22px;
+  font-family: var(--sans);
+  font-size: 14px; font-weight: 600;
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 8px;
+  transition: opacity .15s;
+}
+.btn-primary:hover { opacity: .88; }
+.btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+
+.btn-secondary {
+  background: none;
+  color: var(--text2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 11px 18px;
+  font-family: var(--sans);
+  font-size: 13px; font-weight: 500;
+  cursor: pointer;
+  transition: all .15s;
+}
+.btn-secondary:hover { background: var(--surface2); color: var(--text); border-color: var(--border2); }
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text2);
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+  transition: all .12s;
+}
+.btn-sm:hover { background: var(--surface); border-color: var(--border2); }
+
+/* ── ACTION BAR ── */
+.action-bar {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 1.5rem; margin-bottom: 2rem;
+}
+
+/* ── LOADING ── */
+.loading-bar {
+  display: none;
+  align-items: center; gap: 10px;
+  font-size: 13px; color: var(--text2);
+}
+.loading-bar.show { display: flex; }
+.spinner {
+  width: 16px; height: 16px;
+  border: 2px solid var(--border2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── RESULTS SECTION ── */
+.results-section { margin-top: 1rem; }
+
+/* ── METRIC CARDS ── */
+.metric-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  text-align: center;
+}
+.metric-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+.metric-val   { font-size: 26px; font-weight: 600; font-family: var(--mono); color: var(--text); }
+.metric-sub   { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.metric-card.good  { border-color: #b8d4c0; background: var(--accent-bg); }
+.metric-card.good  .metric-val { color: var(--accent); }
+.metric-card.warn  { border-color: #e0c898; background: var(--warn-bg); }
+.metric-card.warn  .metric-val { color: var(--warn); }
+.metric-card.bad   { border-color: #e0a8a8; background: var(--danger-bg); }
+.metric-card.bad   .metric-val { color: var(--danger); }
+
+/* ── FORMULA BLOCK ── */
+.formula-block {
+  background: #1a1814;
+  color: #e8e4dc;
+  border-radius: var(--radius-sm);
+  padding: 1rem 1.25rem;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 2;
+  overflow-x: auto;
+}
+.formula-block .comment { color: #6b7560; }
+.formula-block .hl      { color: #8bc4a0; font-weight: 500; }
+.formula-block .val     { color: #f0c070; }
+.formula-block .eq      { color: #c8a0e8; }
+
+/* ── TABLE ── */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.data-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+.data-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: var(--surface2); }
+.mono-cell { font-family: var(--mono); font-size: 12px; }
+
+/* ── BADGES ── */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 500;
+  padding: 3px 9px;
+  border-radius: 100px;
+}
+.badge.good   { background: var(--accent-bg); color: var(--accent); }
+.badge.warn   { background: var(--warn-bg); color: var(--warn); }
+.badge.bad    { background: var(--danger-bg); color: var(--danger); }
+.badge.info   { background: var(--blue-bg); color: var(--blue); }
+.badge.neutral{ background: var(--surface2); color: var(--text2); }
+
+/* ── PROGRESS BAR ── */
+.progress-wrap { height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; margin-top: 8px; }
+.progress-fill { height: 100%; border-radius: 4px; transition: width .9s cubic-bezier(.16,1,.3,1); }
+
+/* ── CALC STEP ── */
+.calc-step {
+  display: flex;
+  gap: 12px;
+  padding: .9rem 0;
+  border-bottom: 1px solid var(--border);
+  align-items: flex-start;
+}
+.calc-step:last-child { border-bottom: none; }
+.calc-step-num {
+  width: 24px; height: 24px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  font-size: 11px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.calc-step-content { flex: 1; }
+.calc-step-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.calc-step-body  { font-size: 12.5px; color: var(--text2); line-height: 1.7; }
+.calc-step-body code {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--surface2);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--text);
+}
+
+/* ── DIVIDER ── */
+.divider { height: 1px; background: var(--border); margin: 1.25rem 0; }
+
+/* ── PREPROCESS DIFF ── */
+.preprocess-row {
+  display: grid; grid-template-columns: auto 1fr;
+  gap: 6px 12px;
+  font-size: 12.5px;
+  align-items: start;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+.preprocess-row:last-child { border-bottom: none; }
+.pre-key { color: var(--text3); font-family: var(--mono); font-size: 11px; white-space: nowrap; margin-top: 2px; }
+.pre-val { color: var(--text); line-height: 1.6; word-break: break-word; }
+
+/* ── ALERT ── */
+.alert {
+  padding: .75rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  display: none;
+  margin-bottom: 1rem;
+}
+.alert.show { display: flex; gap: 8px; align-items: flex-start; }
+.alert.error { background: var(--danger-bg); color: var(--danger); border: 1px solid #e0a8a8; }
+.alert.info  { background: var(--blue-bg); color: var(--blue); border: 1px solid #a8c4e8; }
+
+/* ── TABS ── */
+.tab-nav { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; }
+.tab-btn {
+  font-size: 13px; font-weight: 500;
+  padding: 8px 18px;
+  border: none; background: none;
+  cursor: pointer;
+  color: var(--text3);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all .15s;
+}
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-btn:hover:not(.active) { color: var(--text2); }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+/* ── PRINT ── */
+@media print {
+  .no-print { display: none !important; }
+  .card { break-inside: avoid; }
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 700px) {
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  .site-header { flex-direction: column; align-items: flex-start; }
+}
+</style>
+</head>
+<body>
+
+<div class="page-wrap">
+
+  <!-- HEADER -->
+  <header class="site-header">
+    <div class="logo">
+      <div class="logo-icon">&#x2713;</div>
+      <div>
+        <div class="logo-text">NLP Essay Checker</div>
+        <div class="logo-sub">IndoBERT · Cosine Similarity · CRISP-DM</div>
+      </div>
+    </div>
+    <span class="header-badge">indobenchmark/indobert-base-p2 · Lokal</span>
+  </header>
+
+  <!-- ─── SECTION 1: INPUT ─── -->
+  <div class="card no-print">
+    <div class="card-header">
+      <div class="card-title">
+        <span class="step-num">1</span>&nbsp; Kunci Jawaban
+      </div>
+      <button class="btn-sm" onclick="tambahKunci()">+ Tambah Poin</button>
+    </div>
+    <div id="kunci-list">
+      <div class="kunci-row">
+        <input type="text" class="kunci-input" placeholder="Masukkan poin kunci jawaban...">
+        <button class="btn-remove" onclick="hapusKunci(this)" title="Hapus">✕</button>
+      </div>
+    </div>
+    <button class="add-poin-btn" onclick="tambahKunci()">＋ Tambah poin kunci jawaban</button>
+  </div>
+
+  <div class="grid-2 no-print">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><span class="step-num">2</span>&nbsp; Jawaban Mahasiswa</div>
+      </div>
+      <textarea id="jawaban-text" placeholder="Tempel teks jawaban mahasiswa di sini...&#10;Atau upload file PDF/Gambar di bawah"></textarea>
+      <div style="margin-top:10px">
+        <label for="file-upload" class="upload-zone" id="upload-zone">
+          <span class="upload-icon">&#x2601;</span>
+          <p>Upload PDF / Gambar jawaban</p>
+          <small>PDF · JPG · PNG · WEBP · maks 5 MB</small>
+          <span class="upload-fname" id="upload-fname" style="display:none"></span>
+        </label>
+        <input type="file" id="file-upload" accept=".pdf,.jpg,.jpeg,.png,.webp" onchange="onFileChange(this)">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><span class="step-num">3</span>&nbsp; Konfigurasi</div>
+      </div>
+
+      <label class="field-label">Threshold Kemiripan</label>
+      <div class="slider-wrap" style="margin-bottom:1rem">
+        <span style="font-size:11px;color:var(--text3)">0.3</span>
+        <input type="range" min="0.30" max="0.90" step="0.05" value="0.60"
+               id="sl-threshold" oninput="document.getElementById('v-threshold').textContent=parseFloat(this.value).toFixed(2)">
+        <span style="font-size:11px;color:var(--text3)">0.9</span>
+        <span class="slider-val" id="v-threshold">0.60</span>
+      </div>
+
+      <label class="field-label">Bobot Semantic Similarity</label>
+      <div class="slider-wrap" style="margin-bottom:.5rem">
+        <input type="range" min="0" max="100" step="5" value="60"
+               id="sl-semantic" oninput="syncBobot()">
+        <span class="slider-val" id="v-semantic">60%</span>
+      </div>
+
+      <label class="field-label">Bobot Kelengkapan Poin</label>
+      <div class="slider-wrap" style="margin-bottom:1rem">
+        <input type="range" min="0" max="100" step="5" value="40"
+               id="sl-kelengkapan" oninput="syncBobot2()">
+        <span class="slider-val" id="v-kelengkapan">40%</span>
+      </div>
+
+      <div class="divider"></div>
+
+      <label class="field-label">URL Backend PHP</label>
+      <input type="text" id="api-url" value="api.php" placeholder="http://localhost/essay-checker/api.php">
+
+      <!-- HF token tidak dipakai; IndoBERT berjalan lokal via indobert_server.py -->
+      <input type="hidden" id="hf-token" value="">
+    </div>
+  </div>
+
+  <div class="alert error" id="alert-error"></div>
+  <div class="alert info"  id="alert-info"></div>
+
+  <div class="action-bar no-print">
+    <button class="btn-primary" id="btn-analyze" onclick="runAnalysis()">
+      &#x2713;&nbsp; Analisis Sekarang
+    </button>
+    <button class="btn-secondary" onclick="resetForm()">Reset</button>
+    <div class="loading-bar" id="loading">
+      <div class="spinner"></div>
+      <span id="loading-text">Menghubungi IndoBERT...</span>
+    </div>
+  </div>
+
+  <!-- ─── SECTION: HASIL ─── -->
+  <div class="results-section" id="results-section" style="display:none">
+
+    <!-- SUMMARY METRICS -->
+    <div class="section-label" style="margin-bottom:.75rem">&#x2261; Ringkasan Hasil</div>
+    <div class="grid-4" id="metric-grid" style="margin-bottom:1.5rem"></div>
+
+    <!-- TABS -->
+    <div class="tab-nav">
+      <button class="tab-btn active" onclick="switchTab('tab-calc')">Perhitungan Lengkap</button>
+      <button class="tab-btn" onclick="switchTab('tab-poin')">Detail Per Poin</button>
+      <button class="tab-btn" onclick="switchTab('tab-pre')">Pre-processing</button>
+      <button class="tab-btn" onclick="switchTab('tab-raw')">JSON Raw</button>
+    </div>
+
+    <!-- TAB: PERHITUNGAN LENGKAP -->
+    <div class="tab-pane active" id="tab-calc">
+
+      <div class="card" style="margin-bottom:1rem">
+        <div class="card-header">
+          <div class="card-title">Formula Cosine Similarity</div>
+          <span class="badge info">IndoBERT Vector Space</span>
+        </div>
+        <div class="formula-block" id="formula-block"></div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:1rem">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Informasi Vektor Embedding</div></div>
+          <div id="embedding-info"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Skor Akhir Tertimbang</div></div>
+          <div id="scoring-info"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">Langkah-Langkah Perhitungan</div></div>
+        <div id="calc-steps"></div>
+      </div>
+
+    </div>
+
+    <!-- TAB: DETAIL PER POIN -->
+    <div class="tab-pane" id="tab-poin">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Similarity Per Poin Kunci</div>
+          <button class="btn-sm no-print" onclick="window.print()">&#x2399; Cetak</button>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="data-table" id="poin-table"></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: PRE-PROCESSING -->
+    <div class="tab-pane" id="tab-pre">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Hasil Text Pre-processing</div></div>
+        <div id="preprocess-view"></div>
+      </div>
+    </div>
+
+    <!-- TAB: JSON RAW -->
+    <div class="tab-pane" id="tab-raw">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">JSON Response dari Backend</div>
+          <button class="btn-sm no-print" onclick="copyJSON()">&#x2398; Salin JSON</button>
+        </div>
+        <pre id="raw-json" style="font-family:var(--mono);font-size:11.5px;overflow-x:auto;line-height:1.7;color:var(--text2);white-space:pre-wrap;"></pre>
+      </div>
+    </div>
+
+  </div><!-- end results -->
+
+</div><!-- end page-wrap -->
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────
+let kunciCount = 1;
+let lastData   = null;
+let uploadFile = null;
+
+// ── KUNCI MANAGEMENT ──────────────────────────────────────────────
+function tambahKunci() {
+  const list = document.getElementById('kunci-list');
+  const div  = document.createElement('div');
+  div.className = 'kunci-row';
+  div.innerHTML = `<input type="text" class="kunci-input" placeholder="Masukkan poin kunci jawaban...">
+    <button class="btn-remove" onclick="hapusKunci(this)">✕</button>`;
+  list.appendChild(div);
+  kunciCount++;
+}
+
+function hapusKunci(btn) {
+  const rows = document.querySelectorAll('.kunci-row');
+  if (rows.length > 1) btn.closest('.kunci-row').remove();
+}
+
+function getKunci() {
+  return Array.from(document.querySelectorAll('.kunci-input'))
+    .map(i => i.value.trim()).filter(v => v.length > 0);
+}
+
+// ── FILE UPLOAD ────────────────────────────────────────────────────
+function onFileChange(input) {
+  const file = input.files[0];
+  if (!file) return;
+  uploadFile = file;
+  const zone  = document.getElementById('upload-zone');
+  const fname = document.getElementById('upload-fname');
+  zone.classList.add('has-file');
+  fname.textContent = '📎 ' + file.name;
+  fname.style.display = 'block';
+}
+
+// ── BOBOT SYNC ─────────────────────────────────────────────────────
+function syncBobot() {
+  const v = parseInt(document.getElementById('sl-semantic').value);
+  document.getElementById('v-semantic').textContent = v + '%';
+  document.getElementById('sl-kelengkapan').value   = 100 - v;
+  document.getElementById('v-kelengkapan').textContent = (100 - v) + '%';
+}
+function syncBobot2() {
+  const v = parseInt(document.getElementById('sl-kelengkapan').value);
+  document.getElementById('v-kelengkapan').textContent = v + '%';
+  document.getElementById('sl-semantic').value   = 100 - v;
+  document.getElementById('v-semantic').textContent = (100 - v) + '%';
+}
+
+// ── TABS ───────────────────────────────────────────────────────────
+function switchTab(id) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ── ALERTS ────────────────────────────────────────────────────────
+function showAlert(type, msg) {
+  const el = document.getElementById('alert-' + type);
+  el.textContent = msg;
+  el.classList.add('show');
+  if (type === 'error') setTimeout(() => el.classList.remove('show'), 7000);
+}
+function hideAlerts() {
+  document.querySelectorAll('.alert').forEach(a => a.classList.remove('show'));
+}
+
+// ── LOADING ────────────────────────────────────────────────────────
+function setLoading(on, text) {
+  const l   = document.getElementById('loading');
+  const btn = document.getElementById('btn-analyze');
+  l.className   = on ? 'loading-bar show' : 'loading-bar';
+  btn.disabled  = on;
+  if (text) document.getElementById('loading-text').textContent = text;
+}
+
+// ── MAIN ANALYSIS ──────────────────────────────────────────────────
+async function runAnalysis() {
+  hideAlerts();
+  const kunci   = getKunci();
+  const jawaban = document.getElementById('jawaban-text').value.trim();
+  const apiUrl  = document.getElementById('api-url').value.trim();
+  const threshold = parseFloat(document.getElementById('sl-threshold').value);
+  const wSemantic = parseInt(document.getElementById('sl-semantic').value);
+
+  if (!kunci.length)            { showAlert('error', 'Masukkan minimal satu poin kunci jawaban.'); return; }
+  if (!jawaban && !uploadFile)  { showAlert('error', 'Masukkan teks jawaban atau upload file.'); return; }
+  if (!apiUrl)                  { showAlert('error', 'Isi URL backend PHP (api.php).'); return; }
+
+  const hfToken = document.getElementById('hf-token').value.trim();
+  const usingHF = hfToken.length > 0;
+  setLoading(true, usingHF ? 'Menghubungi IndoBERT via Hugging Face...' : 'Menghitung TF-IDF Enhanced embedding...');
+
+  try {
+    let body;
+    let headers = {};
+
+    if (uploadFile) {
+      const fd = new FormData();
+      fd.append('kunci',      JSON.stringify(kunci));
+      fd.append('jawaban',    jawaban);
+      fd.append('threshold',  threshold);
+      fd.append('w_semantic', wSemantic);
+      fd.append('hf_token',   hfToken);
+      fd.append('file',       uploadFile);
+      body = fd;
+    } else {
+      body = JSON.stringify({ kunci, jawaban, threshold, w_semantic: wSemantic, hf_token: hfToken });
+      headers['Content-Type'] = 'application/json';
+    }
+
+    setLoading(true, usingHF ? 'Menghitung embedding IndoBERT (768 dimensi)...' : 'Menghitung similarity & BM25...');
+    const resp = await fetch(apiUrl + '?action=analyze', { method: 'POST', headers, body });
+    const data = await resp.json();
+
+    if (data.status === 'error') {
+      showAlert('error', data.message);
+      setLoading(false);
+      return;
+    }
+
+    lastData = data;
+    setLoading(false);
+    renderResults(data);
+    document.getElementById('results-section').style.display = 'block';
+    document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+
+  } catch (err) {
+    setLoading(false);
+    showAlert('error', 'Gagal menghubungi API: ' + err.message + '. Pastikan api.php dapat diakses dan CORS aktif.');
+  }
+}
+
+// ── RENDER RESULTS ─────────────────────────────────────────────────
+function renderResults(d) {
+  const mode   = d.config.mode || 'tfidf';
+  const isHF   = mode === 'indobert';
+  const sim    = d.similarity.cosine_similarity;
+  const blend  = d.similarity.blended_similarity ?? sim;
+  const jac    = d.similarity.jaccard_similarity ?? 0;
+  const dist   = d.similarity.cosine_distance;
+  const skor   = d.scoring.skor_akhir;
+  const label  = d.similarity.label;
+
+  const cls = skor >= 70 ? 'good' : skor >= 45 ? 'warn' : 'bad';
+
+  // HF error notice
+  if (d.config.hf_error) {
+    document.getElementById('alert-error').innerHTML =
+      `⚠ IndoBERT gagal, fallback ke TF-IDF Enhanced: <em>${d.config.hf_error}</em>`;
+    document.getElementById('alert-error').classList.add('show');
+  }
+
+  // ── METRIC CARDS
+  document.getElementById('metric-grid').innerHTML = `
+    <div class="metric-card ${cls}">
+      <div class="metric-label">Skor Akhir</div>
+      <div class="metric-val">${skor.toFixed(1)}</div>
+      <div class="metric-sub">/100 · <span class="badge ${isHF ? 'info' : 'good'}">${isHF ? 'IndoBERT' : 'TF-IDF+'}</span></div>
+    </div>
+    <div class="metric-card ${cls}">
+      <div class="metric-label">Blended Similarity</div>
+      <div class="metric-val">${blend.toFixed(4)}</div>
+      <div class="metric-sub"><span class="badge ${cls}">${label}</span></div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Cosine · Jaccard</div>
+      <div class="metric-val" style="font-size:1.1rem">${sim.toFixed(3)} · ${jac.toFixed(3)}</div>
+      <div class="metric-sub">cos × ${isHF ? '0.85' : '0.70'} + jac × ${isHF ? '0.15' : '0.30'}</div>
+    </div>
+    <div class="metric-card ${d.scoring.poin_terpenuhi >= d.scoring.total_poin * 0.6 ? 'good' : 'warn'}">
+      <div class="metric-label">Poin Terpenuhi</div>
+      <div class="metric-val">${d.scoring.poin_terpenuhi}/${d.scoring.total_poin}</div>
+      <div class="metric-sub">${(d.scoring.rasio_kelengkapan*100).toFixed(0)}% kelengkapan</div>
+    </div>`;
+
+  // ── FORMULA BLOCK
+  const emb = d.embedding;
+  const blendRatioA = isHF ? '0.85' : '0.70';
+  const blendRatioB = isHF ? '0.15' : '0.30';
+  document.getElementById('formula-block').innerHTML = `<span class="comment"># ══ FORMULA SIMILARITY ══════════════════════════════════════════</span>
+<span class="comment"># Mode: ${isHF ? 'IndoBERT Base P2 (indobenchmark/indobert-base-p2) — Lokal' : 'TF-IDF Enhanced + Pre-built IDF'}</span>
+
+<span class="comment"># 1. Embedding dimensi</span>
+dimensi = <span class="val">${emb.dimensi}</span>  <span class="comment"># ${isHF ? '768 dimensi IndoBERT' : 'ukuran vocab TF-IDF'}</span>
+
+<span class="comment"># 2. Norma vektor (||A|| dan ||B||)</span>
+norm_jawaban = sqrt( Σ Ai² ) = <span class="val">${emb.norm_jawaban}</span>
+norm_kunci   = sqrt( Σ Bi² ) = <span class="val">${emb.norm_kunci}</span>
+
+<span class="comment"># 3. Dot product (A · B = Σ Ai × Bi)</span>
+dot_product  = <span class="val">${emb.dot_product}</span>
+
+<span class="comment"># 4. Cosine Similarity</span>
+cos_sim = <span class="val">${emb.dot_product}</span> / (<span class="val">${emb.norm_jawaban}</span> × <span class="val">${emb.norm_kunci}</span>)
+cos_sim = <span class="hl">${sim.toFixed(6)}</span>
+
+<span class="comment"># 5. Jaccard Similarity (word overlap)</span>
+jaccard = |A ∩ B| / |A ∪ B| = <span class="hl">${jac.toFixed(6)}</span>
+
+<span class="comment"># 6. Blended Similarity (cosine + jaccard)</span>
+blended = cos_sim × ${blendRatioA} + jaccard × ${blendRatioB}
+blended = <span class="val">${sim.toFixed(6)}</span> × ${blendRatioA} + <span class="val">${jac.toFixed(6)}</span> × ${blendRatioB} = <span class="hl">${blend.toFixed(6)}</span>
+
+<span class="comment"># 7. Cosine Distance = 1 - cos_sim</span>
+cos_dist = 1 − <span class="val">${sim.toFixed(6)}</span> = <span class="hl">${dist.toFixed(6)}</span>
+
+<span class="comment"># 8. Label (threshold = ${d.config.threshold})</span>
+label = <span class="eq">"${label}"</span>  <span class="comment"># blended ${blend >= d.config.threshold ? '>=' : '<'} ${d.config.threshold} → ${blend >= d.config.threshold ? 'Mirip' : 'Tidak Mirip'}</span>`;
+
+  // ── EMBEDDING INFO
+  document.getElementById('embedding-info').innerHTML = `
+    <div class="calc-step">
+      <div class="calc-step-num">A</div>
+      <div class="calc-step-content">
+        <div class="calc-step-title">Dimensi Vektor</div>
+        <div class="calc-step-body">${isHF
+          ? `IndoBERT menghasilkan vektor <code>${emb.dimensi}</code> dimensi per teks (hidden size 768).`
+          : `TF-IDF Enhanced menghasilkan vektor <code>${emb.dimensi}</code> dimensi (ukuran vocab). Pre-built IDF dari korpus besar Indonesia digunakan sebagai bobot minimum.`
+        }</div>
+      </div>
+    </div>
+    <div class="calc-step">
+      <div class="calc-step-num">B</div>
+      <div class="calc-step-content">
+        <div class="calc-step-title">Norma Vektor</div>
+        <div class="calc-step-body">
+          ||jawaban|| = <code>${emb.norm_jawaban}</code><br>
+          ||kunci&nbsp;&nbsp;&nbsp;&nbsp;|| = <code>${emb.norm_kunci}</code>
+        </div>
+      </div>
+    </div>
+    <div class="calc-step">
+      <div class="calc-step-num">C</div>
+      <div class="calc-step-content">
+        <div class="calc-step-title">Dot Product</div>
+        <div class="calc-step-body">A · B = <code>${emb.dot_product}</code><br>Σ(Ai × Bi) untuk i=1..${emb.dimensi}</div>
+      </div>
+    </div>
+    <div class="calc-step">
+      <div class="calc-step-num">D</div>
+      <div class="calc-step-content">
+        <div class="calc-step-title">Jaccard Similarity</div>
+        <div class="calc-step-body">|irisan kata| / |gabungan kata| = <code>${jac.toFixed(6)}</code> — mengukur overlap kata bersih tanpa memperhatikan urutan.</div>
+      </div>
+    </div>`;
+
+  // ── SCORING INFO
+  const cfg = d.config;
+  const sc  = d.scoring;
+  document.getElementById('scoring-info').innerHTML = `
+    <div class="calc-step">
+      <div class="calc-step-num">1</div>
+      <div class="calc-step-content">
+        <div class="calc-step-title">Skor Semantik</div>
+        <div class="calc-step-body">blended_sim × 100 = <code>${sc.skor_semantic.toFixed(2)}</code> (cosine ${isHF?'85':'70'}% + jaccard ${isHF?'15':'30'}%)</div>
+        <div class="progress-wrap"><div class="progress-fill" style="width:${sc.skor_semantic}%;background:var(--accent)"></div></div>
+      </div>
+    </div>
+    <div class="calc-step">
+      <div class="calc-step-num">2</div>
+      <div class="calc-step-content">
+        <div class="calc-step-title">Skor Kelengkapan</div>
+        <div class="calc-step-body">(${sc.poin_terpenuhi}/${sc.total_poin}) × 100 = <code>${sc.skor_kelengkapan.toFixed(2)}</code></div>
+        <div class="progress-wrap"><div class="progress-fill" style="width:${sc.skor_kelengkapan}%;background:#7a4a10"></div></div>
+      </div>
+    </div>
+    <div class="calc-step">
+      <div class="calc-step-num">3</div>
+      <div class="calc-step-content">
+        <div class="calc-step-title">Skor Akhir (Tertimbang)</div>
+        <div class="calc-step-body"><code>${sc.formula}</code></div>
+        <div class="progress-wrap"><div class="progress-fill" style="width:${sc.skor_akhir}%;background:${skor>=70?'var(--accent)':skor>=45?'#7a4a10':'var(--danger)'}"></div></div>
+      </div>
+    </div>`;
+
+  // ── CALC STEPS (penjelasan langkah)
+  const step2 = isHF
+    ? `<div class="calc-step-title">Tokenisasi &amp; Embedding IndoBERT</div>
+       <div class="calc-step-body">Teks dikirim ke model <code>indobenchmark/indobert-base-p2</code> (124.5M parameter, 12 layer, 12 attention head). Output: tensor <code>[batch, token, 768]</code>.</div>`
+    : `<div class="calc-step-title">TF-IDF Enhanced dengan Pre-built IDF</div>
+       <div class="calc-step-body">Setiap kata direpresentasikan sebagai TF-IDF vektor <code>${emb.dimensi}</code> dimensi. IDF diambil dari nilai maksimum antara <em>corpus lokal</em> dan <em>pre-built IDF</em> dari ~300 kata akademik Indonesia — kata teknis seperti <em>fotosintesis</em> mendapat bobot jauh lebih tinggi (IDF 7.5) daripada kata umum.</div>`;
+  const step3 = isHF
+    ? `<div class="calc-step-title">Mean Pooling</div>
+       <div class="calc-step-body">Rata-rata semua token embedding: <code>embedding = mean(last_hidden_state, dim=tokens)</code> → vektor 1D berukuran <code>${emb.dimensi}</code>.</div>`
+    : `<div class="calc-step-title">BM25 (Okapi) per Poin</div>
+       <div class="calc-step-body">Setiap poin kunci dihitung BM25 score terhadap jawaban (k1=1.5, b=0.75). Hasilnya diblend dengan cosine: <code>sim = cosine×0.70 + jaccard×0.30</code>. BM25 norm juga meningkatkan skor kelengkapan (bobot 15%).</div>`;
+
+  document.getElementById('calc-steps').innerHTML = `
+    <div class="calc-step">
+      <div class="calc-step-num">1</div>
+      <div class="calc-step-content">
+        <div class="calc-step-title">Pre-processing Teks</div>
+        <div class="calc-step-body">Teks dinormalisasi: lowercase, hapus URL, karakter non-alfabet, dan stopword Bahasa Indonesia. Stemming Nazief-Adriani. Menghasilkan representasi bersih.</div>
+      </div>
+    </div>
+    <div class="calc-step">
+      <div class="calc-step-num">2</div>
+      <div class="calc-step-content">${step2}</div>
+    </div>
+    <div class="calc-step">
+      <div class="calc-step-num">3</div>
+      <div class="calc-step-content">${step3}</div>
+    </div>
+    <div class="calc-step">
+      <div class="calc-step-num">4</div>
+      <div class="calc-step-content">
+        <div class="calc-step-title">Hitung Norma Vektor</div>
+        <div class="calc-step-body">||A|| = √(Σ Ai²) menggunakan semua ${emb.dimensi} dimensi. Hasil: jawaban=<code>${emb.norm_jawaban}</code>, kunci=<code>${emb.norm_kunci}</code>.</div>
+      </div>
+    </div>
+    <div class="calc-step">
+      <div class="calc-step-num">5</div>
+      <div class="calc-step-content">
+        <div class="calc-step-title">Hitung Dot Product</div>
+        <div class="calc-step-body">A · B = Σ(Ai × Bi) untuk i=1..${emb.dimensi}. Hasil: <code>${emb.dot_product}</code>.</div>
+      </div>
+    </div>
+    <div class="calc-step">
+      <div class="calc-step-num">6</div>
+      <div class="calc-step-content">
+        <div class="calc-step-title">Cosine + Jaccard → Blended Similarity</div>
+        <div class="calc-step-body">cos = <code>${sim.toFixed(6)}</code>, jaccard = <code>${jac.toFixed(6)}</code> → blended = <strong>${blend.toFixed(6)}</strong>. Threshold: <code>${d.config.threshold}</code> → Label: <strong>${label}</strong>.</div>
+      </div>
+    </div>
+    <div class="calc-step">
+      <div class="calc-step-num">7</div>
+      <div class="calc-step-content">
+        <div class="calc-step-title">Skor Akhir Tertimbang</div>
+        <div class="calc-step-body">Bobot semantic <code>${(d.config.w_semantic*100).toFixed(0)}%</code> + kelengkapan <code>${(d.config.w_kelengkapan*100).toFixed(0)}%</code> → <strong>${sc.formula}</strong></div>
+      </div>
+    </div>`;
+
+  // ── POIN TABLE
+  const thead = `<thead><tr>
+    <th>No</th><th>Poin Kunci</th>
+    <th>Cosine Similarity</th><th>Progress</th>
+    <th>Label</th><th>Terpenuhi</th>
+  </tr></thead>`;
+
+  const rows = d.poin_detail.map(p => {
+    const pct  = (p.similarity * 100).toFixed(1);
+    const cls2 = p.terpenuhi ? 'good' : (p.similarity >= 0.4 ? 'warn' : 'bad');
+    const barColor = p.terpenuhi ? 'var(--accent)' : (p.similarity >= 0.4 ? '#ba7517' : '#e24b4a');
+    return `<tr>
+      <td class="mono-cell" style="color:var(--text3)">${p.no}</td>
+      <td>${p.poin}</td>
+      <td class="mono-cell"><strong>${p.similarity.toFixed(4)}</strong></td>
+      <td style="min-width:120px">
+        <div class="progress-wrap" style="margin:0">
+          <div class="progress-fill" style="width:${pct}%;background:${barColor}"></div>
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">${pct}%</div>
+      </td>
+      <td><span class="badge ${cls2}">${p.label}</span></td>
+      <td style="text-align:center;font-size:16px">${p.terpenuhi ? '✅' : '❌'}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('poin-table').innerHTML = thead + '<tbody>' + rows + '</tbody>';
+
+  // ── PRE-PROCESSING
+  const pp = d.preprocessing;
+  document.getElementById('preprocess-view').innerHTML = `
+    <div class="preprocess-row"><div class="pre-key">jawaban asli</div><div class="pre-val">${escHtml(pp.jawaban_original)}</div></div>
+    <div class="preprocess-row"><div class="pre-key">→ lowercase</div><div class="pre-val">${escHtml(pp.jawaban_original.toLowerCase())}</div></div>
+    <div class="preprocess-row"><div class="pre-key">→ cleaned</div><div class="pre-val" style="font-family:var(--mono);font-size:12px;color:var(--accent)">${escHtml(pp.jawaban_bersih)}</div></div>
+    <div class="preprocess-row"><div class="pre-key">jumlah kata</div><div class="pre-val">${pp.panjang_jawaban} kata (setelah stopword removal)</div></div>
+    <div style="height:1rem"></div>
+    <div class="preprocess-row"><div class="pre-key">kunci asli</div><div class="pre-val">${escHtml(pp.kunci_original)}</div></div>
+    <div class="preprocess-row"><div class="pre-key">→ cleaned</div><div class="pre-val" style="font-family:var(--mono);font-size:12px;color:var(--accent)">${escHtml(pp.kunci_bersih)}</div></div>`;
+
+  // ── RAW JSON
+  document.getElementById('raw-json').textContent = JSON.stringify(d, null, 2);
+}
+
+// ── COPY JSON ──────────────────────────────────────────────────────
+function copyJSON() {
+  if (!lastData) return;
+  navigator.clipboard.writeText(JSON.stringify(lastData, null, 2)).then(() => {
+    showAlert('info', 'JSON berhasil disalin ke clipboard.');
+    setTimeout(() => document.getElementById('alert-info').classList.remove('show'), 3000);
+  });
+}
+
+// ── RESET ──────────────────────────────────────────────────────────
+function resetForm() {
+  document.querySelectorAll('.kunci-input').forEach((el, i) => {
+    if (i > 0) el.closest('.kunci-row').remove(); else el.value = '';
+  });
+  document.getElementById('jawaban-text').value = '';
+  document.getElementById('upload-fname').style.display = 'none';
+  document.getElementById('upload-zone').classList.remove('has-file');
+  document.getElementById('file-upload').value = '';
+  uploadFile = null;
+  document.getElementById('results-section').style.display = 'none';
+  hideAlerts();
+}
+
+// ── UTIL ───────────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
